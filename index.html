@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tetris Blocks</title>
+  <style>
+    html {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif
+    }
+
+    #app {
+      max-width: 50rem;
+      margin-left: auto;
+      margin-right: auto;
+      padding: 1rem 1rem 3rem;
+    }
+
+    h2 {
+      border-bottom: 0.1rem solid rgba(0, 0, 0, 0.1);
+    }
+
+    button {
+      padding: 0.25em 0.5em;
+      margin-top: 0.5em;
+      margin-bottom: 0.5em;
+    }
+
+    dt {
+      margin-top: 1em;
+      font-weight: bold;
+    }
+
+    #output {
+      display: block;
+      padding: 1rem 1.5rem;
+      border-radius: 1.5rem;
+      background-color: rgba(0, 0, 0, 0.05);
+      max-height: 50vh;
+      overflow-y: auto;
+    }
+
+    #footer {
+      text-align: center;
+      font-size: 0.8rem;
+      border-top: 0.1rem solid rgba(0,0,0,0.1);
+      padding-top: 0.5rem;
+      padding-bottom: 0.5rem;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+
+<body>
+  <main id="app">
+    <h1>Tetris Blocks</h1>
+    <h2>Input</h2>
+    <p>
+      <small>
+        Y: Yellow /
+        O: Orange /
+        R: Red /
+        G: Green /
+        P: Pink /
+        B: Blue /
+        T: Teal
+      </small>
+    </p>
+    <textarea id="input" rows="8" cols="30"></textarea>
+    <div>
+      <button id="run">Get Tetrominos</button>
+      <button id="reset">Reset</button>
+      <button id="clear">Clear</button>
+    </div>
+    <h2>Preview</h2>
+    <div id="preview"></div>
+    <h2>Output</h2>
+    <p><small>Tip: Copy and paste via Ctrl + C and Ctrl + V or the context menu.</small></p>
+    <button id="select">Select output</button>
+    <small id="stats"></small>
+    <code id="output"></code>
+    <h2>FAQ</h2>
+    <dl>
+      <dt>What is this?</dt>
+      <dd>
+        This is a Tetromino markup generator. The output is raw HTML with inline styling.
+        That way you can insert the markup into all kinds of blogs, forums and documentation tools.
+        Inline HTML often is supported in editors where you write Markdown.
+        But also apps like Atlassian's Confluence support it.
+      </dd>
+      <dt>Why did you make this?</dt>
+      <dd>I created an account on <a href="https://cohost.org/" rel="external">Cohost.org</a> recently.
+        Cohost is a blogging service, and very liberal with the inclusion of inline HTML.
+        To give a potential reader some eye candy, I wanted to include some nice blocks.
+        And to automate the process and build upon it later, I created this little tool.
+        The inspiration for the Tetromino design was from <em>Tetris DS</em>. Good game!
+      </dd>
+      <dt>What is Tetris?</dt>
+      <dd>
+        Tetris is a video game series, created by the Soviet game designer Alexey Pajitnov.
+        The goal is to arrange Tetrominos in a way that you get full lines.
+        The more lines you clear with placing a single Tetromino, the more points you get.
+      </dd>
+      <dt>What is a Tetromino?</dt>
+      <dd>
+        It's a geometric shape made up of four squares, connected at the straight edges.
+        There are <a href="https://en.wikipedia.org/wiki/Tetromino#One-sided_tetrominoes" rel="external">seven
+          variants</a> in total.
+        When I was in school, I liked filling square grids with tetrominos. Fun times.
+      </dd>
+      <dt>Are you affiliated with The Tetris Company?</dt>
+      <dd>No, not at all. I'm just a fan. All rights go to their respective owners.</dd>
+      <dt>Who are you?</dt>
+      <dd>I'm Krank. At day, I'm a UX designer. And at night, I like drawing and coding.</dd>
+      <dt>Do you want to be my friend?</dt>
+      <dd>Sure! Just write me a private message on Twitter (<a href="https://twitter.com/Krankomat96"
+          rel="external">@Krankomat96</a>) or tweet at me.</dd>
+    </dl>
+    <footer id="footer">Tetris Blocks Generator v1.0.0 &copy; 2023</footer>
+  </main>
+  <script>
+
+    const Color = Object.freeze({
+      Y: "#F9E504", // Yellow
+      O: "#F26F18", // Orange
+      R: "#F73D3D", // Red
+      G: "#5CE522", // Green
+      P: "#E448F2", // Pink
+      B: "#3081F2", // Blue
+      T: "#3CF2E3", // Teal
+    });
+
+    function shadeColor(color, percent) {
+      // Inspired by shadeColor() by Pablo, 2012-11-23
+      // https://stackoverflow.com/a/13532993/programmatically-lighten-or-darken-a-hex-color-or-rgb-and-blend-colors
+
+      const shadeChannel = (hexString, percentage) => {
+        const value = parseInt(hexString, 16);
+        const newValue = parseInt(value * (100 + percentage) / 100);
+        const clampedValue = Math.round(Math.min(newValue, 255));
+        return clampedValue.toString(16).padStart(2, "0");
+      }
+
+      const R = shadeChannel(color.substring(1, 3), percent);
+      const G = shadeChannel(color.substring(3, 5), percent);
+      const B = shadeChannel(color.substring(5, 7), percent);
+      return "#" + R + G + B;
+    }
+
+    function replaceRgbWithHexString(string) {
+      const match = string.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+      if (!match) return string;
+      const [, r, g, b] = match;
+      const getAsHex = (color) => parseInt(color).toString(16).padStart(2, "0");
+      return "#" + getAsHex(r) + getAsHex(g) + getAsHex(b);
+    }
+
+    function applyStyle(element, style) {
+      for (const prop in style)
+        element.style[prop] = style[prop];
+    }
+
+    function selectText(element) {
+      window.getSelection().selectAllChildren(element);
+    }
+
+    function getBlock({ width = 32, height = 32, border = 4, color = "#ffcc00" }) {
+      const block = document.createElement("div");
+      applyStyle(block, {
+        display: "inline-block",
+        "background-color": color,
+        width: width + "px",
+        height: height + "px",
+        border: `${border}px solid`,
+        "box-sizing": "border-box",
+        "border-top-color": shadeColor(color, -10),
+        "border-right-color": shadeColor(color, -20),
+        "border-bottom-color": shadeColor(color, -25),
+        "border-left-color": shadeColor(color, -15),
+        "box-shadow": `${border}px ${border}px 0 rgba(0,0,0,0.15)`
+      });
+      const shade = document.createElement("span");
+      applyStyle(shade, {
+        display: "inline-block",
+        width: width - 2 * border + "px",
+        height: height - 2 * border + "px",
+        border: `${width / 2 - border}px solid`,
+        "box-sizing": "border-box",
+        "border-top-color": shadeColor(color, 10),
+        "border-right-color": shadeColor(color, -5),
+        "border-bottom-color": shadeColor(color, -10),
+        "border-left-color": shadeColor(color, 5),
+      });
+      block.appendChild(shade);
+      return block;
+    }
+
+    function getSpacer({ width = 32, height = 32 }) {
+      const spacer = document.createElement("div");
+      applyStyle(spacer, {
+        display: "inline-block",
+        width: width + "px",
+        height: height + "px",
+      });
+      return spacer;
+    }
+
+    function createTetrisZone(rows) {
+      const rowElements = rows.map(row => {
+        const rowElement = document.createElement("div");
+        const chars = row.split("");
+        let currentSpacing = 0;
+        const elements = [];
+        for (const char of chars) {
+          const color = Color[char];
+          if (!color) {
+            if (char !== " ")
+              console.warn(`Unknown character '${char}'. `);
+            currentSpacing += 32;
+            continue;
+          }
+          const block = getBlock({ color: color });
+          if (currentSpacing > 0)
+            block.style.marginLeft = currentSpacing + "px";
+          currentSpacing = 0;
+          elements.push(block);
+        }
+        if (elements.length === 0)
+          elements.push(getSpacer({}));
+        elements.forEach(elem => rowElement.appendChild(elem));
+        applyStyle(rowElement, { display: "flex" });
+        return rowElement;
+      });
+      const zone = document.createElement("div");
+      rowElements.forEach(rowElem => zone.appendChild(rowElem));
+      return zone;
+    }
+
+    function compressHtmlString(string) {
+      let compressedString = string;
+      compressedString = compressedString.replaceAll(/rgb\(\d+,\s*\d+,\s*\d+\)/g, match => replaceRgbWithHexString(match));
+      compressedString = compressedString.replaceAll(/border-image:(.*?);\s*/g, "");
+      return compressedString;
+    }
+
+    function TetrominoGenerator({ input, output, preview, stats, submit, reset, clear, select, sample }) {
+      this.input = input;
+      this.output = output;
+      this.preview = preview;
+      this.stats = stats;
+      this.submitElem = submit;
+      this.resetElem = reset;
+      this.clearElem = clear;
+      this.selectElem = select;
+      this.sample = sample;
+      this.data = [];
+
+      this.submitElem.addEventListener("click", this.run.bind(this));
+      this.resetElem.addEventListener("click", this.reset.bind(this));
+      this.clearElem.addEventListener("click", this.clear.bind(this));
+      this.selectElem.addEventListener("click", function (event) { selectText(this.output) }.bind(this));
+      this.reset();
+    }
+
+    TetrominoGenerator.prototype.run = function run() {
+      const inputValue = this.input.value.split("\n");
+      this.data = inputValue;
+      this.render();
+    }
+
+    TetrominoGenerator.prototype.reset = function reset() {
+      this.data = [...this.sample];
+      this.input.value = this.data.join("\n");
+      this.render();
+    }
+
+    TetrominoGenerator.prototype.clear = function clear() {
+      this.data = [];
+      this.input.value = this.data.join("\n");
+      this.render();
+    }
+
+    TetrominoGenerator.prototype.render = function render() {
+      const tetrisZone = createTetrisZone(this.data);
+      const tetrisZoneRaw = compressHtmlString(tetrisZone.outerHTML);
+      this.preview.innerHTML = "";
+      this.preview.appendChild(tetrisZone);
+      this.stats.textContent = "Size: " + tetrisZoneRaw.length;
+      this.output.textContent = tetrisZoneRaw;
+    }
+
+    const tetrominoGenerator = new TetrominoGenerator({
+      input: document.getElementById("input"),
+      output: document.getElementById("output"),
+      preview: document.getElementById("preview"),
+      stats: document.getElementById("stats"),
+      submit: document.getElementById("run"),
+      reset: document.getElementById("reset"),
+      clear: document.getElementById("clear"),
+      select: document.getElementById("select"),
+      sample: [
+        "   O         ",
+        "YY O  RR   P ",
+        "YY OO  RR PPP",
+        "             ",
+        "   T         ",
+        " B T         ",
+        " B T  GG     ",
+        "BB T GG      ",
+      ],
+    });
+  </script>
+</body>
+
+</html>
